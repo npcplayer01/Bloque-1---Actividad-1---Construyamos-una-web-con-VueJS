@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Calculadora SPA</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        :root {
+            --bg-app: #fdfcf5;
+            --text-main: #4a4a4a;
+            --color-mint: #a8dadc;
+            --color-mint-hover: #90c4c6;
+            --color-butter: #ffe082;
+            --color-butter-hover: #ffd54f;
+            --color-leaf: #81c784;
+        }
+
+        body { 
+            background-color: var(--bg-app); 
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+        }
+
+        .card { 
+            border-radius: 20px;
+            border: none;
+            background-color: #ffffff;
+        }
+
+        .custom-header {
+            background-color: var(--color-mint);
+            color: #333;
+            border-radius: 20px 20px 0 0;
+        }
+
+        .btn-brand-primary { 
+            background-color: var(--color-mint); 
+            border: none; 
+            color: #333;
+            font-weight: 600;
+        }
+        .btn-brand-primary:hover { 
+            background-color: var(--color-mint-hover); 
+            color: #333;
+        }
+
+        .btn-brand-secondary { 
+            background-color: var(--color-butter); 
+            border: none; 
+            color: #333;
+        }
+        .btn-brand-secondary:hover { 
+            background-color: var(--color-butter-hover); 
+            color: #333;
+        }
+
+        .form-control {
+            border-color: #e0e0e0;
+            border-radius: 10px;
+        }
+        .form-control:focus { 
+            border-color: var(--color-mint); 
+            box-shadow: 0 0 0 0.2rem rgba(168, 218, 220, 0.3); 
+        }
+        
+        .border-leaf { border-color: var(--color-leaf) !important; }
+        .text-leaf { color: #558b2f; }
+        .info-icon { cursor: pointer; color: #888; }
+
+        .result-box-success { background-color: #e8f5e9; border-color: #c8e6c9; color: #2e7d32; }
+        .result-box-warning { background-color: #fffde7; border-color: #fff9c4; color: #f9a825; }
+        .result-box-danger { background-color: #ffebee; border-color: #ffcdd2; color: #c62828; }
+        
+        .display-average {
+            font-size: 4rem;
+            font-weight: 700;
+            letter-spacing: -2px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-7 col-lg-6 col-xl-5">
+            <div class="card shadow">
+                <div class="card-header custom-header text-center py-4 position-relative">
+                    <h2 class="h3 mb-0">Mi calculadora de notas.</h2>
+                    <p class="mb-0 small fw-medium">Calcula tu promedio de nota final.</p>
+                    <div class="position-absolute top-0 end-0 p-3">
+                        <i class="bi bi-info-circle-fill fs-5 info-icon" 
+                        data-bs-toggle="tooltip" 
+                        data-bs-placement="left" 
+                        data-bs-title="Bloques: 20% | Proyecto Final: 40% | Máxima nota: 10."></i>
+                    </div>
+                </div>
+                <div class="card-body p-4 p-md-5">
+                    <div v-for="n in 3" :key="n" class="mb-3">
+                        <label class="form-label text-muted small fw-bold text-uppercase">Nota Bloque {{ n }}</label>
+                        <input type="number" class="form-control form-control-lg border-2" 
+                            v-model.number="notas.bloques[n-1]" 
+                            @input="validarNota('bloques', n-1)"
+                            min="0" max="10" step="0.1" placeholder="0.0">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-leaf fw-bold text-uppercase">Proyecto Final</label>
+                        <input type="number" class="form-control form-control-lg border-2 border-leaf" 
+                            v-model.number="notas.proyecto" 
+                            @input="validarNota('proyecto')"
+                            min="0" max="10" step="0.1" placeholder="0.0">
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-between mb-2">
+                        <button @click="calcular" class="btn btn-brand-primary btn-lg flex-grow-1">
+                            <i class="bi bi-magic me-2"></i>Calcular
+                        </button>
+                        <button @click="reiniciar" class="btn btn-brand-secondary btn-lg">
+                            <i class="bi bi-eraser"></i>
+                        </button>
+                    </div>
+
+                    <div v-if="promedioFinal !== null" 
+                        class="mt-4 p-4 text-center rounded-3 shadow-sm border" 
+                        :class="estiloResultado">
+                        <h4 class="h6 text-uppercase fw-bold opacity-75">Tu promedio es</h4>
+                        <p class="display-average mb-1">{{ promedioFinal.toFixed(2) }}</p>
+                        <p class="lead mb-0 fw-medium">{{ statusMessage }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const estadoInicial = () => ({ bloques: [0, 0, 0], proyecto: 0 });
+            const notas = ref(estadoInicial());
+            const promedioFinal = ref(null);
+
+            const validarNota = (tipo, index = null) => {
+                if (tipo === 'bloques') {
+                    if (notas.value.bloques[index] > 10) notas.value.bloques[index] = 10;
+                    if (notas.value.bloques[index] < 0 || isNaN(notas.value.bloques[index])) notas.value.bloques[index] = 0;
+                } else {
+                    if (notas.value.proyecto > 10) notas.value.proyecto = 10;
+                    if (notas.value.proyecto < 0 || isNaN(notas.value.proyecto)) notas.value.proyecto = 0;
+                }
+            };
+
+            const calcular = () => {
+                const sumaBloques = notas.value.bloques.reduce((acc, nota) => acc + (nota * 0.20), 0);
+                const sumaProyecto = notas.value.proyecto * 0.40;
+                promedioFinal.value = Math.min(parseFloat((sumaBloques + sumaProyecto).toFixed(2)), 10);
+            };
+
+            const reiniciar = () => {
+                notas.value = estadoInicial();
+                promedioFinal.value = null;
+            };
+
+            const estiloResultado = computed(() => ({
+                'result-box-success': promedioFinal.value >= 8,
+                'result-box-warning': promedioFinal.value >= 6 && promedioFinal.value < 8,
+                'result-box-danger': promedioFinal.value < 6
+            }));
+
+            const statusMessage = computed(() => {
+                if (promedioFinal.value >= 8) return '¡Qué buen trabajo!';
+                if (promedioFinal.value >= 6) return '¡Aprobado!';
+                return 'No aprobado.';
+            });
+
+            onMounted(() => {
+                const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
+            });
+
+            return { notas, promedioFinal, calcular, reiniciar, validarNota, estiloResultado, statusMessage };
+        }
+    }).mount('#app');
+</script>
+
+</body>
+</html>
